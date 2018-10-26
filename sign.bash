@@ -38,26 +38,87 @@ then
   exit
 fi
 
+log "Resize"
+# Avoid error like the following:
+#
+#  /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/codesign_allocate:
+#  can't write output file: /Volumes/Slicer-4.10.0-macosx-amd64/Slicer.app/Contents/Frameworks/QtWebEngineCore.framework/Versions/Current/QtWebEngineCore.cstemp (No space left on device)
+#  /Volumes/Slicer-4.10.0-macosx-amd64/Slicer.app: the codesign_allocate helper tool cannot be found or used
+#
+hdiutil resize -size 2g ${pkg_base}.rw.dmg
+
 log "Mount"
 hdiutil attach -mountpoint ${vol_name} ${pkg_base}.rw.dmg
 app_dir=$(ls -d ${vol_name}/*.app)
 log "  ${app_dir}"
 
-log "Cleanup frameworks"
-for D in ${app_dir}/Contents/Frameworks/*.framework
-do
-  echo "  $(basename ${D})"
-  if [ -d ${D}/Helpers ]
-  then
-    pushd ${D} > /dev/null
-    mv -v Helpers Versions/Current/Helpers
-    popd > /dev/null
+log "Cleanup Slicer QtWebEngineCore framework"
+framework_dir=${app_dir}/Contents/Frameworks/QtWebEngineCore.framework
+if [ -d ${framework_dir}/Helpers ]; then
+  pushd ${framework_dir} > /dev/null
+  mv -v Helpers Versions/Current/Helpers
+  executable=Versions/Current/Helpers/QtWebEngineProcess.app/Contents/MacOS/QtWebEngineProcess
+  install_name_tool -rpath @loader_path/../../../../../../ @loader_path/../../../../../../../../ $executable
+  ln -s Versions/Current/Helpers Helpers
+  popd > /dev/null
+fi
+
+log "Remove invalid LC_RPATH referencing absolute directories"
+for lib in $(find ${app_dir}/Contents/lib/Slicer-4.10 -perm +111 -type f -name "*.dylib");  do
+  args=""
+  for absolute_rpath in $(otool -l ${lib} | grep -A 3 LC_RPATH | grep "path /" | tr -s ' ' | cut -d" " -f3); do
+    args="${args} -delete_rpath ${absolute_rpath}"
+  done
+  if [[ ${args} != "" ]]; then
+    log "  fixing ${lib}"
+    install_name_tool ${args} ${lib}
   fi
 done
+
+
 chmod -R ugo+rX ${app_dir}
 
+do_sign(){
+  codesign --verify --verbose=4 -i ${id} -s "${cert_name_app}" $@
+  if [ $? -ne 0 ]
+  then
+    hdiutil detach "${vol_name}"
+    exit
+  fi
+}
+
+# To speed up signing, invoke codesign with multiple files but limit to <max_args>
+# per invocation. This is needed to avoid "too many arguments" errors.
+sign_paths(){
+  max_args=200
+  idx=0
+  paths=""
+  for path in "$@"; do
+    paths="$paths $path"
+    ((++idx))
+    if [[ $(($idx % $max_args)) == 0 ]]; then
+      do_sign ${paths}
+      paths=""
+    fi
+  done
+  if [[ $paths != "" ]]; then
+    do_sign ${paths}
+  fi
+}
+
+# Explicitly sign executable files outside of standard location but exclude
+# libraries that are opened using dlopen (Qt Plugins and python modules), and
+# exclude files incorrectly marked as executable (png, python scripts, ...)
+for dir in \
+    bin \
+    lib/Slicer-4.10 \
+; do
+  log "Signing ${dir}"
+  sign_paths $(find ${app_dir}/Contents/${dir} -perm +111 -type f ! -name "*Python.so" ! -name "*PythonQt.so" ! -name "*.py" ! -name "*.png" ! -name "*PythonD.dylib")
+done
+
 log "Signing App"
-codesign --verify --verbose=4 --deep -i ${id} -s "${cert_name_app}" "${app_dir}"
+do_sign --deep "${app_dir}"
 if [ $? -ne 0 ]
 then
   hdiutil detach "${vol_name}"
@@ -67,8 +128,9 @@ fi
 log "Generating PKG"
 pkgbuild --sign "${cert_name_inst}" --root ${app_dir} --identifier ${id} --version ${ver} --install-location="/Applications/${app_name}" ${pkg_base}.pkg
 
-log "Convert to intermediate format needed for rez tool."
 hdiutil detach "${vol_name}"
+
+log "Convert to intermediate format needed for rez tool."
 hdiutil convert ${pkg_base}.rw.dmg -format UDRO -o ${pkg_base}.ro
 rm -f ${pkg_base}.rw.dmg
 
