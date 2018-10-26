@@ -39,8 +39,9 @@ then
 fi
 
 log "Mount"
-hdiutil attach ${pkg_base}.rw.dmg
+hdiutil attach -mountpoint ${vol_name} ${pkg_base}.rw.dmg
 app_dir=$(ls -d ${vol_name}/*.app)
+log "  ${app_dir}"
 
 log "Cleanup frameworks"
 for D in ${app_dir}/Contents/Frameworks/*.framework
