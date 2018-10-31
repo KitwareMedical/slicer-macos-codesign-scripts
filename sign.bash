@@ -178,3 +178,15 @@ rm -f ${pkg_base}.ro.dmg
 
 log "Signing DMG"
 codesign --verify --verbose --display --deep -i ${id} -s "${cert_name_app}" ${pkg}
+
+log "Mount signed DMG"
+device=$(yes | hdiutil attach -noverify ${pkg} | grep 'Apple_HFS' | egrep '^/dev/' | sed 1q | awk '{print $1}')
+
+log "Checking mounted filesystem: ${device}"
+fsck_hfs ${device}
+
+log "Check if Gatekeeper will accept the app's signature: ${app_dir}"
+spctl -a -t exec -vv ${app_dir}
+
+log "Umount volume: ${vol_name}"
+hdiutil detach "${vol_name}"
