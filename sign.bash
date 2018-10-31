@@ -38,22 +38,40 @@ then
   exit
 fi
 
-log "Resize"
+hdiutil attach -mountpoint ${vol_name} ${pkg_base}.rw.dmg
+app_dir=$(ls -d ${vol_name}/*.app)
+log "Mount: ${app_dir}"
+
+app_name=$(basename ${app_dir})
+log "Application: ${app_name}"
+
+log "Create temporary directory"
 # Avoid error like the following:
 #
 #  /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/codesign_allocate:
 #  can't write output file: /Volumes/Slicer-4.10.0-macosx-amd64/Slicer.app/Contents/Frameworks/QtWebEngineCore.framework/Versions/Current/QtWebEngineCore.cstemp (No space left on device)
 #  /Volumes/Slicer-4.10.0-macosx-amd64/Slicer.app: the codesign_allocate helper tool cannot be found or used
 #
-hdiutil resize -size 2g ${pkg_base}.rw.dmg
+temp_dir=$(mktemp -d)
+tmp_vol_name=/Volumes/$(basename ${temp_dir})
+tmp_dmg_name=$(basename ${temp_dir}).rw.dmg
+tmp_app_dir=${tmp_vol_name}/${app_name}
 
-log "Mount"
-hdiutil attach -mountpoint ${vol_name} ${pkg_base}.rw.dmg
-app_dir=$(ls -d ${vol_name}/*.app)
-log "  ${app_dir}"
+log "Create ${tmp_dmg_name}"
+hdiutil create ${tmp_dmg_name} -fs HFS+ -size 2g -format UDRW -srcfolder ${temp_dir}
+
+log "Mount ${tmp_dmg_name}"
+hdiutil attach -mountpoint ${tmp_vol_name} ${tmp_dmg_name}
+
+log "Create directory ${tmp_app_dir}"
+mkdir -p ${tmp_app_dir}
+
+log "Copy content from ${app_dir} to ${tmp_app_dir}"
+# -a option ensure symlinks and attributes are preserved
+cp -aR ${app_dir}/* ${tmp_app_dir}/
 
 log "Cleanup Slicer QtWebEngineCore framework"
-framework_dir=${app_dir}/Contents/Frameworks/QtWebEngineCore.framework
+framework_dir=${tmp_app_dir}/Contents/Frameworks/QtWebEngineCore.framework
 if [ -d ${framework_dir}/Helpers ]; then
   pushd ${framework_dir} > /dev/null
   mv -v Helpers Versions/Current/Helpers
@@ -64,7 +82,7 @@ if [ -d ${framework_dir}/Helpers ]; then
 fi
 
 log "Remove invalid LC_RPATH referencing absolute directories"
-for lib in $(find ${app_dir}/Contents/lib/Slicer-4.10 -perm +111 -type f -name "*.dylib");  do
+for lib in $(find ${tmp_app_dir}/Contents/lib/Slicer-4.10 -perm +111 -type f -name "*.dylib");  do
   args=""
   for absolute_rpath in $(otool -l ${lib} | grep -A 3 LC_RPATH | grep "path /" | tr -s ' ' | cut -d" " -f3); do
     args="${args} -delete_rpath ${absolute_rpath}"
@@ -75,13 +93,13 @@ for lib in $(find ${app_dir}/Contents/lib/Slicer-4.10 -perm +111 -type f -name "
   fi
 done
 
-
-chmod -R ugo+rX ${app_dir}
+chmod -R ugo+rX ${tmp_app_dir}
 
 do_sign(){
   codesign --verify --verbose=4 -i ${id} -s "${cert_name_app}" $@
   if [ $? -ne 0 ]
   then
+    hdiutil detach "${tmp_vol_name}"
     hdiutil detach "${vol_name}"
     exit
   fi
@@ -114,20 +132,34 @@ for dir in \
     lib/Slicer-4.10 \
 ; do
   log "Signing ${dir}"
-  sign_paths $(find ${app_dir}/Contents/${dir} -perm +111 -type f ! -name "*Python.so" ! -name "*PythonQt.so" ! -name "*.py" ! -name "*.png" ! -name "*PythonD.dylib")
+  sign_paths $(find ${tmp_app_dir}/Contents/${dir} -perm +111 -type f ! -name "*Python.so" ! -name "*PythonQt.so" ! -name "*.py" ! -name "*.png" ! -name "*PythonD.dylib")
 done
 
 log "Signing App"
-do_sign --deep "${app_dir}"
+do_sign --deep "${tmp_app_dir}"
+
+# Exit and detach if signing failed
 if [ $? -ne 0 ]
 then
+  hdiutil detach "${tmp_vol_name}"
   hdiutil detach "${vol_name}"
   exit
 fi
 
+log "Copy signed files back to ${app_dir}"
+rm -rf ${app_dir}/*
+cp -aR ${tmp_app_dir}/* ${app_dir}/
+
 log "Generating PKG"
 pkgbuild --sign "${cert_name_inst}" --root ${app_dir} --identifier ${id} --version ${ver} --install-location="/Applications/${app_name}" ${pkg_base}.pkg
 
+log "Umount temporary volume: ${tmp_vol_name}"
+hdiutil detach ${tmp_vol_name}
+
+log "Remove temporary DMG: ${tmp_dmg_name}"
+rm -f ${tmp_dmg_name}
+
+log "Umount volume: ${vol_name}"
 hdiutil detach "${vol_name}"
 
 log "Convert to intermediate format needed for rez tool."
