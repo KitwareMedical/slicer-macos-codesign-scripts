@@ -70,17 +70,6 @@ log "Copy content from ${app_dir} to ${tmp_app_dir}"
 # -a option ensure symlinks and attributes are preserved
 cp -aR ${app_dir}/* ${tmp_app_dir}/
 
-log "Cleanup Slicer QtWebEngineCore framework"
-framework_dir=${tmp_app_dir}/Contents/Frameworks/QtWebEngineCore.framework
-if [ -d ${framework_dir}/Helpers ]; then
-  pushd ${framework_dir} > /dev/null
-  mv -v Helpers Versions/Current/Helpers
-  executable=Versions/Current/Helpers/QtWebEngineProcess.app/Contents/MacOS/QtWebEngineProcess
-  install_name_tool -rpath @loader_path/../../../../../../ @loader_path/../../../../../../../../ $executable
-  ln -s Versions/Current/Helpers Helpers
-  popd > /dev/null
-fi
-
 log "Remove invalid LC_RPATH referencing absolute directories"
 for lib in $(find ${tmp_app_dir}/Contents/lib/Slicer-4.10 -perm +111 -type f -name "*.dylib");  do
   args=""
