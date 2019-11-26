@@ -22,6 +22,11 @@ vol_name="/Volumes/${pkg_base}"
 cert_name_app="$3"
 cert_name_inst="$4"
 
+log "Extracting major.minor version from ${ver}"
+ver_major=$(echo ${ver} | cut -d. -f1)
+ver_minor=$(echo ${ver} | cut -d. -f2)
+log " ${ver_major}.${ver_minor}"
+
 log "Backing up the original DMG"
 cp ${pkg} ${pkg_base}.orig.dmg
 
@@ -71,7 +76,7 @@ log "Copy content from ${app_dir} to ${tmp_app_dir}"
 cp -aR ${app_dir}/* ${tmp_app_dir}/
 
 log "Remove invalid LC_RPATH referencing absolute directories"
-for lib in $(find ${tmp_app_dir}/Contents/lib/Slicer-4.10 -perm +111 -type f -name "*.dylib");  do
+for lib in $(find ${tmp_app_dir}/Contents/lib/Slicer-${ver_major}.${ver_minor} -perm +111 -type f -name "*.dylib");  do
   args=""
   for absolute_rpath in $(otool -l ${lib} | grep -A 3 LC_RPATH | grep "path /" | tr -s ' ' | cut -d" " -f3); do
     args="${args} -delete_rpath ${absolute_rpath}"
@@ -118,7 +123,7 @@ sign_paths(){
 # exclude files incorrectly marked as executable (png, python scripts, ...)
 for dir in \
     bin \
-    lib/Slicer-4.10 \
+    lib/Slicer-${ver_major}.${ver_minor} \
 ; do
   log "Signing ${dir}"
   sign_paths $(find ${tmp_app_dir}/Contents/${dir} -perm +111 -type f ! -name "*Python.so" ! -name "*PythonQt.so" ! -name "*.py" ! -name "*.png" ! -name "*PythonD.dylib")
