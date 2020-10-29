@@ -50,6 +50,9 @@ log "Mount: ${app_dir}"
 app_name=$(basename ${app_dir})
 log "Application: ${app_name}"
 
+lib_subdir=${app_name%.*}-${ver_major}.${ver_minor}
+log "Library subdirectory: ${lib_subdir}"
+
 log "Create temporary directory"
 # Avoid error like the following:
 #
@@ -76,7 +79,7 @@ log "Copy content from ${app_dir} to ${tmp_app_dir}"
 cp -aR ${app_dir}/* ${tmp_app_dir}/
 
 log "Remove invalid LC_RPATH referencing absolute directories"
-for lib in $(find ${tmp_app_dir}/Contents/lib/Slicer-${ver_major}.${ver_minor} -perm +111 -type f -name "*.dylib");  do
+for lib in $(find ${tmp_app_dir}/Contents/lib/${lib_subdir} -perm +111 -type f -name "*.dylib");  do
   args=""
   for absolute_rpath in $(otool -l ${lib} | grep -A 3 LC_RPATH | grep "path /" | tr -s ' ' | cut -d" " -f3); do
     args="${args} -delete_rpath ${absolute_rpath}"
@@ -123,7 +126,7 @@ sign_paths(){
 # exclude files incorrectly marked as executable (png, python scripts, ...)
 for dir in \
     bin \
-    lib/Slicer-${ver_major}.${ver_minor} \
+    lib/${lib_subdir} \
 ; do
   log "Signing ${dir}"
   sign_paths $(find ${tmp_app_dir}/Contents/${dir} -perm +111 -type f ! -name "*Python.so" ! -name "*PythonQt.so" ! -name "*.py" ! -name "*.png" ! -name "*PythonD.dylib")
