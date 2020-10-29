@@ -50,7 +50,8 @@ log "Mount: ${app_dir}"
 app_name=$(basename ${app_dir})
 log "Application: ${app_name}"
 
-lib_subdir=${app_name%.*}-${ver_major}.${ver_minor}
+lib_dir=$(ls -d ${vol_name}/${app_name}/Contents/lib/${app_name%.*}-*)
+lib_subdir=$(basename ${lib_dir})
 log "Library subdirectory: ${lib_subdir}"
 
 log "Create temporary directory"
