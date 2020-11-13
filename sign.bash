@@ -12,6 +12,8 @@ then
   exit 1
 fi
 
+script_name=$(basename $0)
+
 umask 022
 
 id="$1"
@@ -78,6 +80,20 @@ mkdir -p ${tmp_app_dir}
 log "Copy content from ${app_dir} to ${tmp_app_dir}"
 # -a option ensure symlinks and attributes are preserved
 cp -aR ${app_dir}/* ${tmp_app_dir}/
+
+plist_file=${tmp_app_dir}/Contents/Info.plist
+
+log "Extracting CFBundleIdentifier value from Info.plist"
+current_id=$(plutil -extract CFBundleIdentifier xml1 -o - ${plist_file} | xmllint --xpath //string/text\(\) 2>/dev/null -)
+log "Extracting CFBundleIdentifier value from Info.plist [${current_id}]"
+
+if [[ "${current_id}" == "" ]]; then
+  log "Updating info.plist setting CFBundleIdentifier to '${id}'"
+  plutil -replace CFBundleIdentifier -string ${id} ${plist_file}
+elif [[ "${current_id}" != "${id}" ]]; then
+  log "error: Identifier found in Info.plist [${current_id}] is different from Identifier passed as ${script_name} argument [${id}]"
+  exit 1
+fi
 
 log "Remove invalid LC_RPATH referencing absolute directories"
 for lib in $(find ${tmp_app_dir}/Contents/lib/${lib_subdir} -perm +111 -type f -name "*.dylib");  do
