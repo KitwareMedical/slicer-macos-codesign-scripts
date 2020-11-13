@@ -110,7 +110,7 @@ done
 chmod -R ugo+rX ${tmp_app_dir}
 
 do_sign(){
-  codesign --verify --verbose=4 -i ${id} -s "${cert_name_app}" $@
+  codesign --verify --verbose=4 --options=runtime -i ${id} -s "${cert_name_app}" $@
   if [ $? -ne 0 ]
   then
     hdiutil detach "${tmp_vol_name}"
