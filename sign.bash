@@ -138,15 +138,13 @@ sign_paths(){
   fi
 }
 
-# Explicitly sign executable files outside of standard location but exclude
-# libraries that are opened using dlopen (Qt Plugins and python modules), and
-# exclude files incorrectly marked as executable (png, python scripts, ...)
+# Exclude files incorrectly marked as executable (png, python scripts, ...)
 for dir in \
     bin \
-    lib/${lib_subdir} \
+    lib \
 ; do
   log "Signing ${dir}"
-  sign_paths $(find ${tmp_app_dir}/Contents/${dir} -perm +111 -type f ! -name "*Python.so" ! -name "*PythonQt.so" ! -name "*.py" ! -name "*.png" ! -name "*PythonD.dylib")
+  sign_paths $(find ${tmp_app_dir}/Contents/${dir} -perm +111 -type f ! -name "*.py" ! -name "*.png" )
 done
 
 log "Signing App"
