@@ -13,6 +13,7 @@ then
 fi
 
 script_name=$(basename $0)
+script_dir=$(cd $(dirname $0) || exit 1; pwd)
 
 umask 022
 
@@ -110,7 +111,7 @@ done
 chmod -R ugo+rX ${tmp_app_dir}
 
 do_sign(){
-  codesign --verify --verbose=4 --options=runtime -i ${id} -s "${cert_name_app}" $@
+  codesign --verify --verbose=4 --entitlements ${script_dir}/entitlements.plist --options=runtime -i ${id} -s "${cert_name_app}" $@
   if [ $? -ne 0 ]
   then
     hdiutil detach "${tmp_vol_name}"
