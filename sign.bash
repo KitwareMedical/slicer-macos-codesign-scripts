@@ -163,8 +163,8 @@ if [[ "${current_id}" == "" ]]; then
   log "Updating info.plist setting CFBundleIdentifier to '${id}'"
   plutil -replace CFBundleIdentifier -string "${id}" "${plist_file}"
 elif [[ "${current_id}" != "${id}" ]]; then
-  log "error: Identifier found in Info.plist [${current_id}] is different from Identifier passed as ${script_name} argument [${id}]"
-  exit 1
+  log "Identifier found in Info.plist [${current_id}] is different from Identifier passed as ${script_name} argument [${id}]: Setting CFBundleIdentifier value to [${id}]"
+  plutil -replace CFBundleIdentifier -string "${id}" "${plist_file}"
 fi
 
 log "Remove invalid LC_RPATH referencing absolute directories"
