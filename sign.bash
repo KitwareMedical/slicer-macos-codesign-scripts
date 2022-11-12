@@ -136,7 +136,8 @@ elif [[ "${current_id}" != "${id}" ]]; then
 fi
 
 log "Remove invalid LC_RPATH referencing absolute directories"
-for lib in $(find "${tmp_app_dir}/Contents/lib/${lib_subdir}" -perm +111 -type f -name "*.dylib");  do
+find "${tmp_app_dir}/Contents/lib/${lib_subdir}" -perm +111 -type f -name "*.dylib" -print0 | while IFS= read -r -d '' lib
+do
   args=()
   for absolute_rpath in $(otool -l "${lib}" | grep -A 3 LC_RPATH | grep "path /" | tr -s ' ' | cut -d" " -f3); do
     args+=("-delete_rpath")
