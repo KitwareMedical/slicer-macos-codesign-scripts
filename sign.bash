@@ -176,7 +176,7 @@ sign_paths(){
   for path in "$@"; do
     paths+=("$path")
     ((++idx))
-    if [[ $(($idx % $max_args)) == 0 ]]; then
+    if [[ $((idx % max_args)) == 0 ]]; then
       do_sign "${paths[@]}"
       paths=()
     fi
