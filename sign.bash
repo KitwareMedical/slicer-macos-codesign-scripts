@@ -159,7 +159,7 @@ do_sign(){
     --options=runtime \
     -i "${id}" \
     -s "${cert_name_app}" \
-    $@;
+    "$@";
   then
     hdiutil detach "${tmp_vol_name}"
     hdiutil detach "${vol_name}"
