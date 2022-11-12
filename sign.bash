@@ -22,7 +22,7 @@ then
   exit 1
 fi
 
-script_dir=$(cd $(dirname "$0") || exit 1; pwd)
+script_dir=$(cd "$(dirname "$0")" || exit 1; pwd)
 readonly script_dir
 
 umask 022
