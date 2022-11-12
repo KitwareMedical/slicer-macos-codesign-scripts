@@ -211,7 +211,7 @@ then
 fi
 
 log "Copy signed files back to ${app_dir}"
-rm -rf "${app_dir}"/*
+rm -rf "${app_dir:?}"/*
 cp -aR "${tmp_app_dir}"/* "${app_dir}"/
 
 log "Generating PKG"
