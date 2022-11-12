@@ -1,5 +1,15 @@
 #!/usr/bin/env bash
 
+script_name=$(basename $0)
+readonly script_name
+
+usage="usage: $script_name <identifier> <version> <dev_id_application> <dev_id_installer> [--] <package>.dmg
+
+Sign the \"<application>.app\" bundle inside the given \"<package>.dmg\" disk image.
+Also produce a \"<package>.pkg\" installer.
+"
+readonly usage
+
 function log {
   echo
   echo "  --  " "$@"
@@ -8,11 +18,10 @@ function log {
 
 if [ $# -ne 5 ]
 then
-  log "Usage: $0 identifier version dev_id_application dev_id_installer /path/to/file.dmg"
+  log "$usage"
   exit 1
 fi
 
-script_name=$(basename $0)
 script_dir=$(cd $(dirname $0) || exit 1; pwd)
 
 umask 022
