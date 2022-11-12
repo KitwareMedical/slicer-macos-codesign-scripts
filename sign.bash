@@ -187,7 +187,7 @@ sign_paths(){
 }
 
 # Ensure all libraries are executable
-find "${tmp_app_dir}/Contents/" -type f \( -name '*.so' -o -name '*.dylib' \) ! -perm -a+x -print | xargs chmod +x
+find "${tmp_app_dir}/Contents/" -type f \( -name '*.so' -o -name '*.dylib' \) ! -perm -a+x -print0 | xargs -0 chmod +x
 
 # Exclude files incorrectly marked as executable (png, python scripts, ...)
 for dir in \
