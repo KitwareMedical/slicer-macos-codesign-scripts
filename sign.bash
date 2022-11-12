@@ -67,8 +67,7 @@ hdiutil flatten "${pkg}"
 
 log "Convert from original image to uncompressed read-write"
 hdiutil convert "${pkg}" -format UDRW -o "${pkg_base}.rw"
-rm -f "${pkg}"
-if [ $? -ne 0 ]
+if ! rm -f "${pkg}";
 then
   exit
 fi
@@ -152,8 +151,15 @@ done
 chmod -R ugo+rX "${tmp_app_dir}"
 
 do_sign(){
-  codesign --verify --force --verbose=4 --entitlements "${script_dir}/entitlements.plist" --options=runtime -i "${id}" -s "${cert_name_app}" $@
-  if [ $? -ne 0 ]
+  if ! codesign \
+    --verify \
+    --force \
+    --verbose=4 \
+    --entitlements "${script_dir}/entitlements.plist" \
+    --options=runtime \
+    -i "${id}" \
+    -s "${cert_name_app}" \
+    $@;
   then
     hdiutil detach "${tmp_vol_name}"
     hdiutil detach "${vol_name}"
@@ -200,11 +206,9 @@ for dir in \
 done
 
 log "Signing App"
-do_sign --deep "${tmp_app_dir}"
-
-# Exit and detach if signing failed
-if [ $? -ne 0 ]
+if ! do_sign --deep "${tmp_app_dir}";
 then
+  # Exit and detach if signing failed
   hdiutil detach "${tmp_vol_name}"
   hdiutil detach "${vol_name}"
   exit
