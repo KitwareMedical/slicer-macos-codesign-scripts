@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-script_name=$(basename $0)
+script_name=$(basename "$0")
 readonly script_name
 
 usage="usage: $script_name <identifier> <version> <dev_id_application> <dev_id_installer> [--] <package>.dmg
@@ -22,7 +22,7 @@ then
   exit 1
 fi
 
-script_dir=$(cd $(dirname $0) || exit 1; pwd)
+script_dir=$(cd $(dirname "$0") || exit 1; pwd)
 readonly script_dir
 
 umask 022
@@ -36,7 +36,7 @@ readonly ver
 pkg="$5"
 readonly pkg
 
-pkg_base="$(basename ${pkg} .dmg)"
+pkg_base="$(basename "${pkg}" .dmg)"
 readonly pkg_base
 
 vol_name="/Volumes/${pkg_base}"
@@ -49,42 +49,42 @@ cert_name_inst="$4"
 readonly cert_name_inst
 
 log "Extracting major.minor version from ${ver}"
-ver_major=$(echo ${ver} | cut -d. -f1)
+ver_major=$(echo "${ver}" | cut -d. -f1)
 readonly ver_major
 
-ver_minor=$(echo ${ver} | cut -d. -f2)
+ver_minor=$(echo "${ver}" | cut -d. -f2)
 readonly ver_minor
 
 log " ${ver_major}.${ver_minor}"
 
 log "Backing up the original DMG"
-cp ${pkg} ${pkg_base}.orig.dmg
+cp "${pkg}" "${pkg_base}.orig.dmg"
 
 log "Extract SLA"
-hdiutil unflatten ${pkg}
-DeRez -only 'LPic' -only 'STR#' -only 'TEXT' ${pkg} > sla.r
-hdiutil flatten ${pkg}
+hdiutil unflatten "${pkg}"
+DeRez -only 'LPic' -only 'STR#' -only 'TEXT' "${pkg}" > sla.r
+hdiutil flatten "${pkg}"
 
 log "Convert from original image to uncompressed read-write"
-hdiutil convert ${pkg} -format UDRW -o ${pkg_base}.rw
-rm -f ${pkg}
+hdiutil convert "${pkg}" -format UDRW -o "${pkg_base}.rw"
+rm -f "${pkg}"
 if [ $? -ne 0 ]
 then
   exit
 fi
 
-hdiutil attach -mountpoint ${vol_name} ${pkg_base}.rw.dmg
-app_dir=$(ls -d ${vol_name}/*.app)
+hdiutil attach -mountpoint "${vol_name}" "${pkg_base}.rw.dmg"
+app_dir=$(ls -d "${vol_name}"/*.app)
 readonly app_dir
 log "Mount: ${app_dir}"
 
-app_name=$(basename ${app_dir})
+app_name=$(basename "${app_dir}")
 readonly app_name
 log "Application: ${app_name}"
 
-lib_dir=$(ls -d ${vol_name}/${app_name}/Contents/lib/${app_name%.*}-*)
+lib_dir=$(ls -d "${vol_name}/${app_name}/Contents/lib/${app_name%.*}"-*)
 readonly lib_dir
-lib_subdir=$(basename ${lib_dir})
+lib_subdir=$(basename "${lib_dir}")
 readonly lib_subdir
 log "Library subdirectory: ${lib_subdir}"
 
@@ -98,60 +98,61 @@ log "Create temporary directory"
 temp_dir=$(mktemp -d)
 readonly temp_dir
 
-tmp_vol_name=/Volumes/$(basename ${temp_dir})
+tmp_vol_name=/Volumes/$(basename "${temp_dir}")
 readonly tmp_vol_name
 
-tmp_dmg_name=$(basename ${temp_dir}).rw.dmg
+tmp_dmg_name=$(basename "${temp_dir}").rw.dmg
 readonly tmp_dmg_name
 
 tmp_app_dir=${tmp_vol_name}/${app_name}
 readonly tmp_app_dir
 
 log "Create ${tmp_dmg_name}"
-hdiutil create ${tmp_dmg_name} -fs HFS+ -size 2g -format UDRW -srcfolder ${temp_dir}
+hdiutil create "${tmp_dmg_name}" -fs HFS+ -size 2g -format UDRW -srcfolder "${temp_dir}"
 
 log "Mount ${tmp_dmg_name}"
-hdiutil attach -mountpoint ${tmp_vol_name} ${tmp_dmg_name}
+hdiutil attach -mountpoint "${tmp_vol_name}" "${tmp_dmg_name}"
 
 log "Create directory ${tmp_app_dir}"
-mkdir -p ${tmp_app_dir}
+mkdir -p "${tmp_app_dir}"
 
 log "Copy content from ${app_dir} to ${tmp_app_dir}"
 # -a option ensure symlinks and attributes are preserved
-cp -aR ${app_dir}/* ${tmp_app_dir}/
+cp -aR "${app_dir}"/* "${tmp_app_dir}"/
 
 plist_file=${tmp_app_dir}/Contents/Info.plist
 readonly plist_file
 
 log "Extracting CFBundleIdentifier value from Info.plist"
-current_id=$(plutil -extract CFBundleIdentifier xml1 -o - ${plist_file} | xmllint --xpath //string/text\(\) 2>/dev/null -)
+current_id=$(plutil -extract CFBundleIdentifier xml1 -o - "${plist_file}" | xmllint --xpath //string/text\(\) 2>/dev/null -)
 readonly current_id
 log "Extracting CFBundleIdentifier value from Info.plist [${current_id}]"
 
 if [[ "${current_id}" == "" ]]; then
   log "Updating info.plist setting CFBundleIdentifier to '${id}'"
-  plutil -replace CFBundleIdentifier -string ${id} ${plist_file}
+  plutil -replace CFBundleIdentifier -string "${id}" "${plist_file}"
 elif [[ "${current_id}" != "${id}" ]]; then
   log "error: Identifier found in Info.plist [${current_id}] is different from Identifier passed as ${script_name} argument [${id}]"
   exit 1
 fi
 
 log "Remove invalid LC_RPATH referencing absolute directories"
-for lib in $(find ${tmp_app_dir}/Contents/lib/${lib_subdir} -perm +111 -type f -name "*.dylib");  do
-  args=""
-  for absolute_rpath in $(otool -l ${lib} | grep -A 3 LC_RPATH | grep "path /" | tr -s ' ' | cut -d" " -f3); do
-    args="${args} -delete_rpath ${absolute_rpath}"
+for lib in $(find "${tmp_app_dir}/Contents/lib/${lib_subdir}" -perm +111 -type f -name "*.dylib");  do
+  args=()
+  for absolute_rpath in $(otool -l "${lib}" | grep -A 3 LC_RPATH | grep "path /" | tr -s ' ' | cut -d" " -f3); do
+    args+=("-delete_rpath")
+    args+=("${absolute_rpath}")
   done
-  if [[ ${args} != "" ]]; then
+  if [[ ${#args[@]} -gt 0 ]]; then
     log "  fixing ${lib}"
-    install_name_tool ${args} ${lib}
+    install_name_tool "${args[@]}" "${lib}"
   fi
 done
 
-chmod -R ugo+rX ${tmp_app_dir}
+chmod -R ugo+rX "${tmp_app_dir}"
 
 do_sign(){
-  codesign --verify --force --verbose=4 --entitlements ${script_dir}/entitlements.plist --options=runtime -i ${id} -s "${cert_name_app}" $@
+  codesign --verify --force --verbose=4 --entitlements "${script_dir}/entitlements.plist" --options=runtime -i "${id}" -s "${cert_name_app}" $@
   if [ $? -ne 0 ]
   then
     hdiutil detach "${tmp_vol_name}"
@@ -165,22 +166,22 @@ do_sign(){
 sign_paths(){
   max_args=200
   idx=0
-  paths=""
+  paths=()
   for path in "$@"; do
-    paths="$paths $path"
+    paths+=("$path")
     ((++idx))
     if [[ $(($idx % $max_args)) == 0 ]]; then
-      do_sign ${paths}
-      paths=""
+      do_sign "${paths[@]}"
+      paths=()
     fi
   done
-  if [[ $paths != "" ]]; then
-    do_sign ${paths}
+  if [[ ${#paths[@]} -gt 0 ]]; then
+    do_sign "${paths[@]}"
   fi
 }
 
 # Ensure all libraries are executable
-find ${tmp_app_dir}/Contents/ -type f \( -name '*.so' -o -name '*.dylib' \) ! -perm -a+x -print | xargs chmod +x
+find "${tmp_app_dir}/Contents/" -type f \( -name '*.so' -o -name '*.dylib' \) ! -perm -a+x -print | xargs chmod +x
 
 # Exclude files incorrectly marked as executable (png, python scripts, ...)
 for dir in \
@@ -188,7 +189,14 @@ for dir in \
     lib \
 ; do
   log "Signing ${dir}"
-  sign_paths $(find ${tmp_app_dir}/Contents/${dir} -perm +111 -type f ! -name "*.py" ! -name "*.png" )
+
+  # See https://stackoverflow.com/questions/23356779/how-can-i-store-the-find-command-results-as-an-array-in-bash/23357277#23357277
+  paths=()
+  while IFS=  read -r -d $'\0' path; do
+      paths+=("$path")
+  done < <(find "${tmp_app_dir}/Contents/${dir}" -perm +111 -type f ! -name "*.py" ! -name "*.png" -print0)
+
+  sign_paths "${paths[@]}"
 done
 
 log "Signing App"
@@ -203,47 +211,47 @@ then
 fi
 
 log "Copy signed files back to ${app_dir}"
-rm -rf ${app_dir}/*
-cp -aR ${tmp_app_dir}/* ${app_dir}/
+rm -rf "${app_dir}"/*
+cp -aR "${tmp_app_dir}"/* "${app_dir}"/
 
 log "Generating PKG"
-pkgbuild --sign "${cert_name_inst}" --root ${app_dir} --identifier ${id} --version ${ver} --install-location="/Applications/${app_name}" ${pkg_base}.pkg
+pkgbuild --sign "${cert_name_inst}" --root "${app_dir}" --identifier "${id}" --version "${ver}" --install-location="/Applications/${app_name}" "${pkg_base}".pkg
 
 log "Umount temporary volume: ${tmp_vol_name}"
-hdiutil detach ${tmp_vol_name}
+hdiutil detach "${tmp_vol_name}"
 
 log "Remove temporary DMG: ${tmp_dmg_name}"
-rm -f ${tmp_dmg_name}
+rm -f "${tmp_dmg_name}"
 
 log "Umount volume: ${vol_name}"
 hdiutil detach "${vol_name}"
 
 log "Convert to intermediate format needed for rez tool."
-hdiutil convert ${pkg_base}.rw.dmg -format UDRO -o ${pkg_base}.ro
-rm -f ${pkg_base}.rw.dmg
+hdiutil convert "${pkg_base}.rw.dmg" -format UDRO -o "${pkg_base}.ro"
+rm -f "${pkg_base}.rw.dmg"
 
 log "Re-insert SLA with rez tool."
-hdiutil unflatten ${pkg_base}.ro.dmg
-Rez sla.r -a -o ${pkg_base}.ro.dmg
-hdiutil flatten ${pkg_base}.ro.dmg
+hdiutil unflatten "${pkg_base}.ro.dmg"
+Rez sla.r -a -o "${pkg_base}.ro.dmg"
+hdiutil flatten "${pkg_base}.ro.dmg"
 rm -f sla.r
 
 log "Convert back to read-only, compressed image."
-hdiutil convert ${pkg_base}.ro.dmg -format UDZO -imagekey zlib-level=9 -ov -o ${pkg}
-rm -f ${pkg_base}.ro.dmg
+hdiutil convert "${pkg_base}.ro.dmg" -format UDZO -imagekey zlib-level=9 -ov -o "${pkg}"
+rm -f "${pkg_base}.ro.dmg"
 
 log "Signing DMG"
-codesign --verify --verbose --display --deep -i ${id} -s "${cert_name_app}" ${pkg}
+codesign --verify --verbose --display --deep -i "${id}" -s "${cert_name_app}" "${pkg}"
 
 log "Mount signed DMG"
-device=$(yes | hdiutil attach -noverify ${pkg} | grep 'Apple_HFS' | egrep '^/dev/' | sed 1q | awk '{print $1}')
+device=$(yes | hdiutil attach -noverify "${pkg}" | grep 'Apple_HFS' | egrep '^/dev/' | sed 1q | awk '{print $1}')
 readonly device
 
 log "Checking mounted filesystem: ${device}"
-fsck_hfs ${device}
+fsck_hfs "${device}"
 
 log "Check if Gatekeeper will accept the app's signature: ${app_dir}"
-spctl -a -t exec -vv ${app_dir}
+spctl -a -t exec -vv "${app_dir}"
 
 log "Umount volume: ${vol_name}"
 hdiutil detach "${vol_name}"
