@@ -23,20 +23,38 @@ then
 fi
 
 script_dir=$(cd $(dirname $0) || exit 1; pwd)
+readonly script_dir
 
 umask 022
 
 id="$1"
+readonly id
+
 ver="$2"
+readonly ver
+
 pkg="$5"
+readonly pkg
+
 pkg_base="$(basename ${pkg} .dmg)"
+readonly pkg_base
+
 vol_name="/Volumes/${pkg_base}"
+readonly vol_name
+
 cert_name_app="$3"
+readonly cert_name_app
+
 cert_name_inst="$4"
+readonly cert_name_inst
 
 log "Extracting major.minor version from ${ver}"
 ver_major=$(echo ${ver} | cut -d. -f1)
+readonly ver_major
+
 ver_minor=$(echo ${ver} | cut -d. -f2)
+readonly ver_minor
+
 log " ${ver_major}.${ver_minor}"
 
 log "Backing up the original DMG"
@@ -57,13 +75,17 @@ fi
 
 hdiutil attach -mountpoint ${vol_name} ${pkg_base}.rw.dmg
 app_dir=$(ls -d ${vol_name}/*.app)
+readonly app_dir
 log "Mount: ${app_dir}"
 
 app_name=$(basename ${app_dir})
+readonly app_name
 log "Application: ${app_name}"
 
 lib_dir=$(ls -d ${vol_name}/${app_name}/Contents/lib/${app_name%.*}-*)
+readonly lib_dir
 lib_subdir=$(basename ${lib_dir})
+readonly lib_subdir
 log "Library subdirectory: ${lib_subdir}"
 
 log "Create temporary directory"
@@ -74,9 +96,16 @@ log "Create temporary directory"
 #  /Volumes/Slicer-4.10.0-macosx-amd64/Slicer.app: the codesign_allocate helper tool cannot be found or used
 #
 temp_dir=$(mktemp -d)
+readonly temp_dir
+
 tmp_vol_name=/Volumes/$(basename ${temp_dir})
+readonly tmp_vol_name
+
 tmp_dmg_name=$(basename ${temp_dir}).rw.dmg
+readonly tmp_dmg_name
+
 tmp_app_dir=${tmp_vol_name}/${app_name}
+readonly tmp_app_dir
 
 log "Create ${tmp_dmg_name}"
 hdiutil create ${tmp_dmg_name} -fs HFS+ -size 2g -format UDRW -srcfolder ${temp_dir}
@@ -92,9 +121,11 @@ log "Copy content from ${app_dir} to ${tmp_app_dir}"
 cp -aR ${app_dir}/* ${tmp_app_dir}/
 
 plist_file=${tmp_app_dir}/Contents/Info.plist
+readonly plist_file
 
 log "Extracting CFBundleIdentifier value from Info.plist"
 current_id=$(plutil -extract CFBundleIdentifier xml1 -o - ${plist_file} | xmllint --xpath //string/text\(\) 2>/dev/null -)
+readonly current_id
 log "Extracting CFBundleIdentifier value from Info.plist [${current_id}]"
 
 if [[ "${current_id}" == "" ]]; then
@@ -206,6 +237,7 @@ codesign --verify --verbose --display --deep -i ${id} -s "${cert_name_app}" ${pk
 
 log "Mount signed DMG"
 device=$(yes | hdiutil attach -noverify ${pkg} | grep 'Apple_HFS' | egrep '^/dev/' | sed 1q | awk '{print $1}')
+readonly device
 
 log "Checking mounted filesystem: ${device}"
 fsck_hfs ${device}
