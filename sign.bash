@@ -244,7 +244,7 @@ log "Signing DMG"
 codesign --verify --verbose --display --deep -i "${id}" -s "${cert_name_app}" "${pkg}"
 
 log "Mount signed DMG"
-device=$(yes | hdiutil attach -noverify "${pkg}" | grep 'Apple_HFS' | egrep '^/dev/' | sed 1q | awk '{print $1}')
+device=$(yes | hdiutil attach -noverify "${pkg}" | grep 'Apple_HFS' | grep -E '^/dev/' | sed 1q | awk '{print $1}')
 readonly device
 
 log "Checking mounted filesystem: ${device}"
