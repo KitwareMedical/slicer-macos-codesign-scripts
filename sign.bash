@@ -73,7 +73,7 @@ then
 fi
 
 hdiutil attach -mountpoint "${vol_name}" "${pkg_base}.rw.dmg"
-app_dir=$(ls -d "${vol_name}"/*.app)
+app_dir=$(ls -d "${vol_name}"/*.app
 readonly app_dir
 log "Mount: ${app_dir}"
 
