@@ -60,10 +60,16 @@ log " ${ver_major}.${ver_minor}"
 log "Backing up the original DMG"
 cp "${pkg}" "${pkg_base}.orig.dmg"
 
+log "Create temporary directory"
+temp_dir=$(mktemp -d)
+readonly temp_dir
+
 log "Extract SLA"
-hdiutil unflatten "${pkg}"
-DeRez -only 'LPic' -only 'STR#' -only 'TEXT' "${pkg}" > sla.r
-hdiutil flatten "${pkg}"
+readonly sla_xml="$temp_dir/sla.xml"
+hdiutil udifderez -xml "$pkg" > "$sla_xml"
+plutil -remove 'blkx' "$sla_xml"
+plutil -remove 'plst' "$sla_xml"
+log "Extract SLA [$sla_xml]"
 
 log "Convert from original image to uncompressed read-write"
 hdiutil convert "${pkg}" -format UDRW -o "${pkg_base}.rw"
@@ -86,10 +92,6 @@ readonly lib_dir
 lib_subdir=$(basename "${lib_dir}")
 readonly lib_subdir
 log "Library subdirectory: ${lib_subdir}"
-
-log "Create temporary directory"
-temp_dir=$(mktemp -d)
-readonly temp_dir
 
 tmp_vol_name=/Volumes/$(basename "${temp_dir}")
 readonly tmp_vol_name
@@ -236,11 +238,9 @@ log "Convert to intermediate format needed for rez tool."
 hdiutil convert "${pkg_base}.rw.dmg" -format UDRO -o "${pkg_base}.ro"
 rm -f "${pkg_base}.rw.dmg"
 
-log "Re-insert SLA with rez tool."
-hdiutil unflatten "${pkg_base}.ro.dmg"
-Rez sla.r -a -o "${pkg_base}.ro.dmg"
-hdiutil flatten "${pkg_base}.ro.dmg"
-rm -f sla.r
+log "Re-insert SLA."
+hdiutil udifrez -xml "${sla_xml}" '' "$pkg"
+rm -f "${sla_xml}"
 
 log "Convert back to read-only, compressed image."
 hdiutil convert "${pkg_base}.ro.dmg" -format UDZO -imagekey zlib-level=9 -ov -o "${pkg}"
