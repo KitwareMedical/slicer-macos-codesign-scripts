@@ -72,6 +72,16 @@ for command in \
   fi
 done
 
+has_hdiutil_udifderez=false
+if hdiutil help 2>&1 | grep -q udifderez; then
+  has_hdiutil_udifderez=true
+fi
+
+has_hdiutil_udifrez=false
+if hdiutil help 2>&1 | grep -q udifrez; then
+  has_hdiutil_udifrez=true
+fi
+
 log "Backing up the original DMG"
 cp "${pkg}" "${pkg_base}.orig.dmg"
 
@@ -79,12 +89,16 @@ log "Create temporary directory"
 temp_dir=$(mktemp -d)
 readonly temp_dir
 
-log "Extract SLA"
-readonly sla_xml="$temp_dir/sla.xml"
-hdiutil udifderez -xml "$pkg" > "$sla_xml"
-plutil -remove 'blkx' "$sla_xml"
-plutil -remove 'plst' "$sla_xml"
-log "Extract SLA [$sla_xml]"
+if $has_hdiutil_udifderez && $has_hdiutil_udifrez; then
+  log "Extract SLA"
+  readonly sla_xml="$temp_dir/sla.xml"
+  hdiutil udifderez -xml "$pkg" > "$sla_xml"
+  plutil -remove 'blkx' "$sla_xml"
+  plutil -remove 'plst' "$sla_xml"
+  log "Extract SLA [$sla_xml]"
+else
+  log "Extract SLA (skipping: \"hdiutil udifderez\" is not available)"
+fi
 
 log "Convert from original image to uncompressed read-write"
 hdiutil convert "${pkg}" -format UDRW -o "${pkg_base}.rw"
@@ -253,9 +267,13 @@ log "Convert to intermediate format needed for rez tool."
 hdiutil convert "${pkg_base}.rw.dmg" -format UDRO -o "${pkg_base}.ro"
 rm -f "${pkg_base}.rw.dmg"
 
-log "Re-insert SLA."
-hdiutil udifrez -xml "${sla_xml}" '' "$pkg"
-rm -f "${sla_xml}"
+if $has_hdiutil_udifderez && $has_hdiutil_udifrez; then
+  log "Re-insert SLA."
+  hdiutil udifrez -xml "${sla_xml}" '' "$pkg"
+  rm -f "${sla_xml}"
+else
+  log "Re-insert SLA (skipping: \"hdiutil udifrez\" is not available)"
+fi
 
 log "Convert back to read-only, compressed image."
 hdiutil convert "${pkg_base}.ro.dmg" -format UDZO -imagekey zlib-level=9 -ov -o "${pkg}"
