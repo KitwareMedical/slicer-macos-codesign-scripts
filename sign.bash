@@ -267,6 +267,10 @@ log "Convert to intermediate format needed for rez tool."
 hdiutil convert "${pkg_base}.rw.dmg" -format UDRO -o "${pkg_base}.ro"
 rm -f "${pkg_base}.rw.dmg"
 
+log "Convert back to read-only, compressed image."
+hdiutil convert "${pkg_base}.ro.dmg" -format UDZO -imagekey zlib-level=9 -ov -o "${pkg}"
+rm -f "${pkg_base}.ro.dmg"
+
 if $has_hdiutil_udifderez && $has_hdiutil_udifrez; then
   log "Re-insert SLA."
   hdiutil udifrez -xml "${sla_xml}" '' "$pkg"
@@ -274,10 +278,6 @@ if $has_hdiutil_udifderez && $has_hdiutil_udifrez; then
 else
   log "Re-insert SLA (skipping: \"hdiutil udifrez\" is not available)"
 fi
-
-log "Convert back to read-only, compressed image."
-hdiutil convert "${pkg_base}.ro.dmg" -format UDZO -imagekey zlib-level=9 -ov -o "${pkg}"
-rm -f "${pkg_base}.ro.dmg"
 
 log "Signing DMG"
 codesign --verify --verbose --display --deep -i "${id}" -s "${cert_name_app}" "${pkg}"
