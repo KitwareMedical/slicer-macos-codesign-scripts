@@ -88,12 +88,6 @@ readonly lib_subdir
 log "Library subdirectory: ${lib_subdir}"
 
 log "Create temporary directory"
-# Avoid error like the following:
-#
-#  /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/codesign_allocate:
-#  can't write output file: /Volumes/Slicer-4.10.0-macosx-amd64/Slicer.app/Contents/Frameworks/QtWebEngineCore.framework/Versions/Current/QtWebEngineCore.cstemp (No space left on device)
-#  /Volumes/Slicer-4.10.0-macosx-amd64/Slicer.app: the codesign_allocate helper tool cannot be found or used
-#
 temp_dir=$(mktemp -d)
 readonly temp_dir
 
@@ -106,6 +100,13 @@ readonly tmp_dmg_name
 tmp_app_dir=${tmp_vol_name}/${app_name}
 readonly tmp_app_dir
 
+# Explicitly creating a volume and copying the package files is required
+# to avoid error like the following:
+#
+#  /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/codesign_allocate:
+#  can't write output file: /Volumes/Slicer-4.10.0-macosx-amd64/Slicer.app/Contents/Frameworks/QtWebEngineCore.framework/Versions/Current/QtWebEngineCore.cstemp (No space left on device)
+#  /Volumes/Slicer-4.10.0-macosx-amd64/Slicer.app: the codesign_allocate helper tool cannot be found or used
+#
 log "Create ${tmp_dmg_name}"
 hdiutil create "${tmp_dmg_name}" -fs HFS+ -size 2g -format UDRW -srcfolder "${temp_dir}"
 
