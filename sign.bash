@@ -57,6 +57,21 @@ readonly ver_minor
 
 log " ${ver_major}.${ver_minor}"
 
+for command in \
+  codesign \
+  fsck_hfs \
+  hdiutil \
+  install_name_tool \
+  pkgbuild \
+  plutil \
+  spctl \
+; do
+  if ! command -v "${command}" &> /dev/null; then
+    echo -e >&2 "ERROR: \"${command}\" not found!\n"
+    exit 1
+  fi
+done
+
 log "Backing up the original DMG"
 cp "${pkg}" "${pkg_base}.orig.dmg"
 
