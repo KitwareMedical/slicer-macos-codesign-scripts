@@ -238,15 +238,6 @@ for dir in \
   sign_paths "${paths[@]}"
 done
 
-# Delete QtWebEngineCore.framework
-# * This is required for signing Slicer (or Slicer-based) package prior Slicer@b0e0361be (2022.11.21)
-#   introduced through PR-6685
-# * See https://github.com/Slicer/Slicer/pull/6685 and https://github.com/Slicer/Slicer/commit/b0e0361be4f42aad2e5bb52142d9e0ed7df9d393
-if [[ -d "${tmp_app_dir}/Contents/Frameworks/QtWebEngineCore.framework" ]]; then
-  log "Removing QtWebEngineCore.framework"
-  rm -rf "${tmp_app_dir}/Contents/Frameworks/QtWebEngineCore.framework"
-fi
-
 log "Signing App"
 if ! do_sign --deep "${tmp_app_dir}";
 then
