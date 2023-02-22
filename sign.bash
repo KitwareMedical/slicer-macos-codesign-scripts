@@ -160,7 +160,7 @@ readonly current_id
 log "Extracting CFBundleIdentifier value from Info.plist [${current_id}]"
 
 if [[ "${current_id}" == "" ]]; then
-  log "Updating info.plist setting CFBundleIdentifier to '${id}'"
+  log "Identifier not found in Info.plist: Setting CFBundleIdentifier value to [${id}]"
   plutil -replace CFBundleIdentifier -string "${id}" "${plist_file}"
 elif [[ "${current_id}" != "${id}" ]]; then
   log "Identifier found in Info.plist [${current_id}] is different from Identifier passed as ${script_name} argument [${id}]: Setting CFBundleIdentifier value to [${id}]"
